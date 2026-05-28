@@ -1,0 +1,43 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: 'private-cloud-lab'
+    datacenter:  'lab-local'
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prometheus-server'
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'ubuntu-infra'
+          vm: 'ubuntu-infra-server'
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          instance: 'ubuntu-infra'
+
+  - job_name: 'fastapi-app'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api:8000']
+        labels:
+          instance: 'fastapi-app'
+          service: 'enterprise-app'

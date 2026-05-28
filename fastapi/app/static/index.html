@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Private Cloud Lab</title>
+  <style>
+    body { font-family: monospace; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+    input, button, select { font-family: monospace; font-size: 14px; padding: 4px 8px; }
+    input[type=text], input[type=password] { width: 180px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+    td, th { border: 1px solid #000; padding: 4px 8px; text-align: left; font-size: 13px; }
+    hr { margin: 16px 0; }
+    .label { font-weight: bold; }
+    .msg { margin: 6px 0; font-size: 13px; }
+    #main { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- Login section -->
+<div id="login-section">
+  <h2>Private Cloud Lab</h2>
+  <div class="label">Login</div>
+  <input id="username" type="text" placeholder="username" value="operator">
+  <input id="password" type="password" placeholder="password" value="operator123">
+  <button onclick="login()">Login</button>
+  <div id="login-msg" class="msg"></div>
+</div>
+
+<!-- Main section (hidden until logged in) -->
+<div id="main">
+  <h2>Private Cloud Lab <span id="user-label" style="font-size:14px;font-weight:normal"></span>
+    <button onclick="logout()" style="font-size:12px;float:right">Logout</button>
+  </h2>
+
+  <div class="label">Upload File</div>
+  <input type="file" id="file-input">
+  <button onclick="uploadFile()">Upload</button>
+  <div id="upload-msg" class="msg"></div>
+
+  <hr>
+
+  <div class="label">Files
+    <button onclick="listFiles()" style="font-size:12px;margin-left:8px">Refresh</button>
+  </div>
+  <table id="file-table">
+    <tr><th>Filename</th><th>Size</th><th>Modified</th><th></th></tr>
+  </table>
+
+  <hr>
+
+  <div class="label">Storage</div>
+  <div id="stats" class="msg"></div>
+
+  <hr>
+
+  <div class="label">Server Info</div>
+  <div id="server-info" class="msg"></div>
+</div>
+
+<script>
+  let token = '';
+  let role = '';
+
+  async function login() {
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    const res = await fetch('/auth/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: `username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`
+    });
+    const data = await res.json();
+    if (res.ok && data.access_token) {
+      token = data.access_token;
+      // decode role from JWT payload
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        role = payload.role || '';
+      } catch(e) { role = ''; }
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('main').style.display = 'block';
+      document.getElementById('user-label').innerText = `(${u} / ${role})`;
+      listFiles();
+      loadStats();
+      loadServerInfo();
+    } else {
+      document.getElementById('login-msg').innerText = 'Login failed: ' + (data.detail || 'unknown error');
+    }
+  }
+
+  function logout() {
+    token = ''; role = '';
+    document.getElementById('login-section').style.display = 'block';
+    document.getElementById('main').style.display = 'none';
+    document.getElementById('login-msg').innerText = '';
+  }
+
+  async function uploadFile() {
+    const fileInput = document.getElementById('file-input');
+    const file = fileInput.files[0];
+    if (!file) { document.getElementById('upload-msg').innerText = 'Select a file first.'; return; }
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/files/upload', {
+      method: 'POST',
+      headers: {'Authorization': `Bearer ${token}`},
+      body: form
+    });
+    const data = await res.json();
+    document.getElementById('upload-msg').innerText = res.ok
+      ? `OK: ${data.filename} (${data.size_bytes} bytes)`
+      : `Error: ${data.detail}`;
+    if (res.ok) { fileInput.value = ''; listFiles(); loadStats(); }
+  }
+
+  async function listFiles() {
+    const res = await fetch('/files', { headers: {'Authorization': `Bearer ${token}`} });
+    const data = await res.json();
+    const table = document.getElementById('file-table');
+    table.innerHTML = '<tr><th>Filename</th><th>Size</th><th>Modified</th><th></th></tr>';
+    for (const f of (data.files || [])) {
+      const row = table.insertRow();
+      row.insertCell().innerText = f.filename;
+      row.insertCell().innerText = f.size_bytes + ' B';
+      row.insertCell().innerText = f.modified_at.slice(0, 19).replace('T', ' ');
+      const cell = row.insertCell();
+      const dl = document.createElement('button');
+      dl.innerText = 'dl';
+      dl.onclick = () => downloadFile(f.filename);
+      cell.appendChild(dl);
+      if (role === 'admin') {
+        cell.appendChild(document.createTextNode(' '));
+        const del = document.createElement('button');
+        del.innerText = 'del';
+        del.onclick = () => deleteFile(f.filename);
+        cell.appendChild(del);
+      }
+    }
+    if (!data.files || data.files.length === 0) {
+      const row = table.insertRow();
+      row.insertCell().colSpan = 4;
+      row.cells[0].innerText = 'No files uploaded yet.';
+    }
+  }
+
+  async function downloadFile(filename) {
+    const res = await fetch(`/files/${filename}`, { headers: {'Authorization': `Bearer ${token}`} });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function deleteFile(filename) {
+    if (!confirm(`Delete "${filename}"?`)) return;
+    const res = await fetch(`/files/${filename}`, {
+      method: 'DELETE',
+      headers: {'Authorization': `Bearer ${token}`}
+    });
+    const data = await res.json();
+    alert(res.ok ? data.message : `Error: ${data.detail}`);
+    listFiles(); loadStats();
+  }
+
+  async function loadStats() {
+    const res = await fetch('/dashboard/storage', { headers: {'Authorization': `Bearer ${token}`} });
+    const data = await res.json();
+    document.getElementById('stats').innerText =
+      `Files: ${data.files_count}  |  Used: ${data.total_size_mb} MB  |  Max upload: ${data.max_file_size_mb} MB`;
+  }
+
+  async function loadServerInfo() {
+    const res = await fetch('/info', { headers: {'Authorization': `Bearer ${token}`} });
+    const data = await res.json();
+    document.getElementById('server-info').innerText =
+      `Host: ${data.hostname}  |  OS: ${data.platform}  |  Uptime: ${Math.floor(data.uptime_seconds)}s  |  Env: ${data.environment}`;
+  }
+</script>
+</body>
+</html>

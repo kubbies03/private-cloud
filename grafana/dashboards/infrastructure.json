@@ -1,0 +1,284 @@
+{
+  "title": "Private Cloud Lab — Infrastructure Overview",
+  "uid": "infra-overview",
+  "tags": ["infrastructure", "lab"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU Usage %",
+      "type": "gauge",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              {"color": "green",  "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "red",    "value": 85}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Memory Usage %",
+      "type": "gauge",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "Memory %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              {"color": "green",  "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "red",    "value": 85}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Disk Usage %",
+      "type": "gauge",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})) * 100",
+          "legendFormat": "Disk %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              {"color": "green",  "value": null},
+              {"color": "yellow", "value": 75},
+              {"color": "red",    "value": 90}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Running Containers",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "count(container_last_seen{id!=\"/\"})",
+          "legendFormat": "Containers"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "CPU Usage Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "100 - (avg by(instance)(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{ instance }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "percent"}
+      }
+    },
+    {
+      "id": 6,
+      "title": "Memory Usage Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes",
+          "legendFormat": "Used Memory"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "bytes"}
+      }
+    },
+    {
+      "id": 7,
+      "title": "Network Traffic",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])",
+          "legendFormat": "RX {{ device }}"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])",
+          "legendFormat": "TX {{ device }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "Bps"}
+      }
+    },
+    {
+      "id": 8,
+      "title": "API Request Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "rate(http_requests_total[5m])",
+          "legendFormat": "{{ method }} {{ handler }} {{ status_code }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "reqps"}
+      }
+    },
+    {
+      "id": 9,
+      "title": "API P95 Latency",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "P95 {{ handler }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "steps": [
+              {"color": "green",  "value": null},
+              {"color": "yellow", "value": 0.5},
+              {"color": "red",    "value": 1.0}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Files Uploaded",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 30},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "app_storage_files_total",
+          "legendFormat": "Files"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [{"color": "blue", "value": null}]
+          }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Storage Used",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 30},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "app_storage_bytes_total",
+          "legendFormat": "Bytes"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "steps": [{"color": "green", "value": null}]
+          }
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "File Upload Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 30},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "rate(app_file_uploads_total[5m])",
+          "legendFormat": "{{ status }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "reqps"}
+      }
+    },
+    {
+      "id": 10,
+      "title": "Recent Auth Log Events",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "{job=\"auth\"}",
+          "legendFormat": ""
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+# Environment variables (contains secrets)
+.env
+
+# SSL keys and certificates
+nginx/ssl/*.key
+nginx/ssl/*.crt
+nginx/ssl/*.pem
+
+# Backup files
+backups/
+
+# IDE / tooling
+.vscode/
+.codegraph/
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
